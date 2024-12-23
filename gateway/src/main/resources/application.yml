@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: sample-gateway
+  cloud:
+    gateway: 
+      default-filters:
+        - name: Retry
+          args:
+            retries: 6             # 최대 재시도 횟수 ( 무중단 배포 과정 중 동시 서비스 개수 만큼 재시도 )
+            statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE # 재시도할 상태
+            methods: GET, POST     # 재시도할 HTTP 메서드
+            backoff: exponential    # 지수 백오프 방식으로 재시도 (exponential, fixed)
+            max-backoff: 2000      # 최대 백오프 시간 (2초). 이 시간을 초과하면 재시도하지 않음
+      discovery:
+        enabled: true  # Eureka에서 서비스 목록 자동 가져오기 활성화
+      routes:
+        - id: sample-service
+          uri: lb://sample-service  # Eureka에 등록된 서비스 호출 (서비스 ID는 'sample-service'여야 함)
+          predicates:
+            - Path=/sample-service/**  # 서비스에 대한 경로 정의
+          filters:
+            - RewritePath=/sample-service/(?<segment>.*), /$\{segment}  # /sample-service/** 부분을 실제 서비스의 /profile로 재작성
+            
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://sample-eureka:8761/eureka/  # Eureka 서버 주소 설정
+    register-with-eureka: false  # Gateway는 Eureka에 등록하지 않음
+    fetch-registry: true  # Eureka에서 서비스 목록을 가져옴            
